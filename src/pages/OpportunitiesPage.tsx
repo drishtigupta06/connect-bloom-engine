@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Briefcase, MapPin, Clock, DollarSign, Plus, Send, Building2, Loader2 } from "lucide-react";
+import { Briefcase, MapPin, Clock, DollarSign, Plus, Send, Building2, Loader2, Search, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -33,6 +33,13 @@ interface Referral {
   created_at: string;
 }
 
+interface AlumniOption {
+  user_id: string;
+  full_name: string;
+  company: string | null;
+  designation: string | null;
+}
+
 const typeBadge: Record<string, string> = {
   "full-time": "bg-info/10 text-info border-info/20",
   internship: "bg-accent/10 text-accent border-accent/20",
@@ -50,6 +57,14 @@ export default function OpportunitiesPage() {
   const [newJob, setNewJob] = useState({ title: "", company: "", location: "", type: "job", employment_type: "full-time", salary_range: "", description: "" });
   const [newReferral, setNewReferral] = useState({ company: "", position: "", alumni_id: "" });
 
+  // Alumni search state
+  const [alumniSearch, setAlumniSearch] = useState("");
+  const [alumniResults, setAlumniResults] = useState<AlumniOption[]>([]);
+  const [selectedAlumni, setSelectedAlumni] = useState<AlumniOption | null>(null);
+  const [searchingAlumni, setSearchingAlumni] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const fetchData = async () => {
       const { data: opps } = await supabase.from("opportunities").select("*").eq("is_active", true).order("created_at", { ascending: false });
@@ -64,6 +79,33 @@ export default function OpportunitiesPage() {
     fetchData();
   }, [user]);
 
+  // Alumni search with debounce
+  useEffect(() => {
+    if (alumniSearch.length < 2) { setAlumniResults([]); return; }
+    const timer = setTimeout(async () => {
+      setSearchingAlumni(true);
+      const { data } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, company, designation")
+        .ilike("full_name", `%${alumniSearch}%`)
+        .neq("user_id", user?.id || "")
+        .limit(8);
+      setAlumniResults(data || []);
+      setSearchingAlumni(false);
+      setShowDropdown(true);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [alumniSearch, user]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setShowDropdown(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
   const postJob = async () => {
     if (!user || !newJob.title || !newJob.company) { toast.error("Fill required fields"); return; }
     const { error } = await supabase.from("opportunities").insert({ ...newJob, posted_by: user.id });
@@ -76,11 +118,13 @@ export default function OpportunitiesPage() {
   };
 
   const submitReferral = async () => {
-    if (!user || !newReferral.company || !newReferral.alumni_id) { toast.error("Fill required fields"); return; }
-    const { error } = await supabase.from("referral_requests").insert({ requester_id: user.id, alumni_id: newReferral.alumni_id, company: newReferral.company, position: newReferral.position });
+    if (!user || !newReferral.company || !selectedAlumni) { toast.error("Fill required fields and select an alumni"); return; }
+    const { error } = await supabase.from("referral_requests").insert({ requester_id: user.id, alumni_id: selectedAlumni.user_id, company: newReferral.company, position: newReferral.position });
     if (error) { toast.error(error.message); return; }
     toast.success("Referral request sent!");
     setReferralOpen(false);
+    setSelectedAlumni(null);
+    setAlumniSearch("");
   };
 
   if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-accent" /></div>;
@@ -107,7 +151,62 @@ export default function OpportunitiesPage() {
               <div className="space-y-3 mt-2">
                 <div><Label>Company</Label><Input value={newReferral.company} onChange={(e) => setNewReferral(p => ({ ...p, company: e.target.value }))} /></div>
                 <div><Label>Position</Label><Input value={newReferral.position} onChange={(e) => setNewReferral(p => ({ ...p, position: e.target.value }))} /></div>
-                <div><Label>Alumni User ID</Label><Input value={newReferral.alumni_id} onChange={(e) => setNewReferral(p => ({ ...p, alumni_id: e.target.value }))} placeholder="Paste alumni user ID" /></div>
+                <div ref={searchRef} className="relative">
+                  <Label>Search Alumni</Label>
+                  {selectedAlumni ? (
+                    <div className="flex items-center justify-between bg-muted rounded-lg px-3 py-2 mt-1">
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{selectedAlumni.full_name}</p>
+                          <p className="text-xs text-muted-foreground">{selectedAlumni.designation}{selectedAlumni.company ? ` at ${selectedAlumni.company}` : ""}</p>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => { setSelectedAlumni(null); setAlumniSearch(""); }}>Change</Button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="relative mt-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          value={alumniSearch}
+                          onChange={(e) => setAlumniSearch(e.target.value)}
+                          placeholder="Type alumni name to search..."
+                          className="pl-9"
+                          onFocus={() => alumniResults.length > 0 && setShowDropdown(true)}
+                        />
+                        {searchingAlumni && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
+                      </div>
+                      {showDropdown && alumniResults.length > 0 && (
+                        <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          {alumniResults.map((a) => (
+                            <button
+                              key={a.user_id}
+                              className="w-full text-left px-3 py-2 hover:bg-accent/10 transition-colors flex items-center gap-2"
+                              onClick={() => {
+                                setSelectedAlumni(a);
+                                setNewReferral(p => ({ ...p, alumni_id: a.user_id }));
+                                setShowDropdown(false);
+                                setAlumniSearch("");
+                              }}
+                            >
+                              <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                              <div>
+                                <p className="text-sm font-medium text-popover-foreground">{a.full_name}</p>
+                                <p className="text-xs text-muted-foreground">{a.designation}{a.company ? ` at ${a.company}` : ""}</p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {showDropdown && alumniSearch.length >= 2 && alumniResults.length === 0 && !searchingAlumni && (
+                        <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg p-3 text-center text-sm text-muted-foreground">
+                          No alumni found matching "{alumniSearch}"
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
                 <Button variant="hero" className="w-full" onClick={submitReferral}>Submit Request</Button>
               </div>
             </DialogContent>
