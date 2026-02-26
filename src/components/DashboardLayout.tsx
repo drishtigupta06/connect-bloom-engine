@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, MessageSquare, Calendar, Briefcase, Brain,
   BarChart3, Settings, Sparkles, ChevronLeft, Bell, Search, LogOut,
   Target, Trophy, Share2, User, Send, Palette, Shield, Check, X, BellRing,
-  ShieldCheck, Award, Heart, TrendingUp, Globe, MessageCircle, DollarSign
+  ShieldCheck, Award, Heart, TrendingUp, Globe, MessageCircle, DollarSign, Mail
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -14,7 +14,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useBrowserNotifications } from "@/hooks/useBrowserNotifications";
 
-const navItems = [
+interface NavItem {
+  icon: typeof Bell;
+  label: string;
+  path: string;
+  adminOnly?: boolean;
+}
+
+const navItems: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
   { icon: Users, label: "Directory", path: "/dashboard/directory" },
   { icon: MessageSquare, label: "Feed", path: "/dashboard/feed" },
@@ -35,11 +42,12 @@ const navItems = [
   { icon: Globe, label: "Global Map", path: "/dashboard/global-map" },
   { icon: User, label: "My Profile", path: "/dashboard/profile" },
   { icon: BarChart3, label: "Analytics", path: "/dashboard/analytics" },
-  { icon: BarChart3, label: "Admin Analytics", path: "/dashboard/admin-analytics" },
+  { icon: BarChart3, label: "Admin Analytics", path: "/dashboard/admin-analytics", adminOnly: true },
+  { icon: Mail, label: "Campaigns", path: "/dashboard/campaigns", adminOnly: true },
   { icon: Award, label: "Impact", path: "/dashboard/impact" },
-  { icon: ShieldCheck, label: "Verification", path: "/dashboard/verification" },
-  { icon: Palette, label: "Branding", path: "/dashboard/branding" },
-  { icon: Shield, label: "Super Admin", path: "/dashboard/admin" },
+  { icon: ShieldCheck, label: "Verification", path: "/dashboard/verification", adminOnly: true },
+  { icon: Palette, label: "Branding", path: "/dashboard/branding", adminOnly: true },
+  { icon: Shield, label: "Super Admin", path: "/dashboard/admin", adminOnly: true },
   { icon: Settings, label: "Settings", path: "/dashboard/settings" },
 ];
 
@@ -75,11 +83,24 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { requestPermission, supported: notifSupported } = useBrowserNotifications();
+
+  // Check if user has admin role
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("user_roles").select("role").eq("user_id", user.id)
+      .then(({ data }) => {
+        if (data) {
+          const roles = data.map((r) => r.role);
+          setIsAdmin(roles.includes("super_admin") || roles.includes("institution_admin"));
+        }
+      });
+  }, [user]);
 
   // Prompt for browser notification permission on first load
   useEffect(() => {
@@ -157,7 +178,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         </div>
 
         <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
+          {navItems
+            .filter((item) => !item.adminOnly || isAdmin)
+            .map((item) => {
             const active = location.pathname === item.path;
             return (
               <Link
