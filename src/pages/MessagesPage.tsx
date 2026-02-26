@@ -120,15 +120,25 @@ export default function MessagesPage() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  // Realtime messages
+  // Realtime messages — listen for both sent and received
   useEffect(() => {
     if (!user) return;
     const ch = supabase.channel("dm-realtime")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `receiver_id=eq.${user.id}` }, (payload) => {
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
         const msg = payload.new as ChatMessage;
-        if (msg.sender_id === activeChat) {
-          setMessages((prev) => [...prev, msg]);
-          supabase.from("messages").update({ is_read: true, read_at: new Date().toISOString() }).eq("id", msg.id);
+        const isRelevant = msg.sender_id === user.id || msg.receiver_id === user.id;
+        if (!isRelevant) return;
+
+        const peerId = msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
+        if (peerId === activeChat) {
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === msg.id)) return prev;
+            return [...prev, msg];
+          });
+          // Auto-mark as read if we're the receiver and chat is open
+          if (msg.receiver_id === user.id) {
+            supabase.from("messages").update({ is_read: true, read_at: new Date().toISOString() }).eq("id", msg.id);
+          }
         }
         fetchConversations();
       })
@@ -149,8 +159,7 @@ export default function MessagesPage() {
     });
     if (error) { toast.error(error.message); return; }
     setMessageInput("");
-    fetchMessages(activeChat);
-    fetchConversations();
+    // Realtime will handle updating messages list — no need to refetch
   };
 
   const filteredPeers = peers.filter((p) => p.full_name.toLowerCase().includes(search.toLowerCase()));
