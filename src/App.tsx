@@ -20,6 +20,8 @@ import NetworkGraph from "./pages/NetworkGraph";
 import NotificationsPage from "./pages/NotificationsPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import MessagesPage from "./pages/MessagesPage";
+import InstitutionBranding from "./pages/InstitutionBranding";
+import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -52,6 +54,8 @@ const AppRoutes = () => (
     <Route path="/dashboard/network" element={<DashPage><NetworkGraph /></DashPage>} />
     <Route path="/dashboard/notifications" element={<DashPage><NotificationsPage /></DashPage>} />
     <Route path="/dashboard/analytics" element={<DashPage><AnalyticsPage /></DashPage>} />
+    <Route path="/dashboard/branding" element={<DashPage><InstitutionBranding /></DashPage>} />
+    <Route path="/dashboard/admin" element={<DashPage><SuperAdminDashboard /></DashPage>} />
     <Route path="/dashboard/settings" element={<DashPage><div className="text-foreground font-heading text-2xl font-bold">Settings — Coming Soon</div></DashPage>} />
     <Route path="*" element={<NotFound />} />
   </Routes>

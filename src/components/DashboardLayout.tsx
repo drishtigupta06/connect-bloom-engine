@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Users, MessageSquare, Calendar, Briefcase, Brain,
   BarChart3, Settings, Sparkles, ChevronLeft, Bell, Search, LogOut,
-  Target, Trophy, Share2, User, Send
+  Target, Trophy, Share2, User, Send, Palette, Shield
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -24,6 +24,8 @@ const navItems = [
   { icon: Bell, label: "Notifications", path: "/dashboard/notifications" },
   { icon: User, label: "My Profile", path: "/dashboard/profile" },
   { icon: BarChart3, label: "Analytics", path: "/dashboard/analytics" },
+  { icon: Palette, label: "Branding", path: "/dashboard/branding" },
+  { icon: Shield, label: "Super Admin", path: "/dashboard/admin" },
   { icon: Settings, label: "Settings", path: "/dashboard/settings" },
 ];
 
