@@ -453,6 +453,42 @@ export type Database = {
         }
         Relationships: []
       }
+      mailing_campaigns: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          message: string
+          segment_filters: Json
+          sent_at: string | null
+          sent_count: number | null
+          status: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          message: string
+          segment_filters?: Json
+          sent_at?: string | null
+          sent_count?: number | null
+          status?: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          message?: string
+          segment_filters?: Json
+          sent_at?: string | null
+          sent_count?: number | null
+          status?: string
+          title?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string
