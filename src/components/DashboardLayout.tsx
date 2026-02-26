@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, MessageSquare, Calendar, Briefcase, Brain,
   BarChart3, Settings, Sparkles, ChevronLeft, Bell, Search, LogOut,
   Target, Trophy, Share2, User, Send, Palette, Shield, Check, X, BellRing,
-  ShieldCheck, Award, Heart
+  ShieldCheck, Award, Heart, TrendingUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -27,6 +27,8 @@ const navItems = [
   { icon: Share2, label: "Network Graph", path: "/dashboard/network" },
   { icon: Bell, label: "Notifications", path: "/dashboard/notifications" },
   { icon: Heart, label: "Mentorship", path: "/dashboard/mentorship" },
+  { icon: Users, label: "Mentor Dashboard", path: "/dashboard/mentor-dashboard" },
+  { icon: TrendingUp, label: "Career Path", path: "/dashboard/career-path" },
   { icon: User, label: "My Profile", path: "/dashboard/profile" },
   { icon: BarChart3, label: "Analytics", path: "/dashboard/analytics" },
   { icon: Award, label: "Impact", path: "/dashboard/impact" },
