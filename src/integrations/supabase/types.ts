@@ -152,31 +152,52 @@ export type Database = {
       }
       institutions: {
         Row: {
+          accent_color: string | null
           created_at: string
+          custom_domain: string | null
           description: string | null
+          favicon_url: string | null
           id: string
           logo_url: string | null
           name: string
+          primary_color: string | null
+          secondary_color: string | null
           slug: string
+          tagline: string | null
           updated_at: string
+          white_label_enabled: boolean | null
         }
         Insert: {
+          accent_color?: string | null
           created_at?: string
+          custom_domain?: string | null
           description?: string | null
+          favicon_url?: string | null
           id?: string
           logo_url?: string | null
           name: string
+          primary_color?: string | null
+          secondary_color?: string | null
           slug: string
+          tagline?: string | null
           updated_at?: string
+          white_label_enabled?: boolean | null
         }
         Update: {
+          accent_color?: string | null
           created_at?: string
+          custom_domain?: string | null
           description?: string | null
+          favicon_url?: string | null
           id?: string
           logo_url?: string | null
           name?: string
+          primary_color?: string | null
+          secondary_color?: string | null
           slug?: string
+          tagline?: string | null
           updated_at?: string
+          white_label_enabled?: boolean | null
         }
         Relationships: []
       }

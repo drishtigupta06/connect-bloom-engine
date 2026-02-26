@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Send, Check, CheckCheck, Search, ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -7,91 +7,151 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
-interface Conversation {
-  id: string;
-  name: string;
-  initials: string;
-  lastMessage: string;
-  time: string;
+interface ConversationPeer {
+  user_id: string;
+  full_name: string;
+  last_message: string;
+  last_time: string;
   unread: number;
-  online: boolean;
 }
 
-interface Message {
+interface ChatMessage {
   id: string;
   content: string;
-  isMine: boolean;
-  time: string;
-  isRead: boolean;
+  sender_id: string;
+  receiver_id: string;
+  is_read: boolean;
+  created_at: string;
 }
 
-const mockConversations: Conversation[] = [
-  { id: "1", name: "Priya Sharma", initials: "PS", lastMessage: "Thanks for the referral! 🙏", time: "2m", unread: 2, online: true },
-  { id: "2", name: "Arjun Mehta", initials: "AM", lastMessage: "The interview went great", time: "1h", unread: 0, online: true },
-  { id: "3", name: "Maya Patel", initials: "MP", lastMessage: "Let's schedule the mentoring session", time: "3h", unread: 1, online: false },
-  { id: "4", name: "Vikram Singh", initials: "VS", lastMessage: "Check out this opportunity", time: "1d", unread: 0, online: false },
-  { id: "5", name: "Sarah Chen", initials: "SC", lastMessage: "Great talk at the meetup!", time: "2d", unread: 0, online: true },
-];
+function getInitials(name: string) {
+  return name.split(" ").map((w) => w[0]).join("").substring(0, 2).toUpperCase();
+}
 
-const mockMessages: Record<string, Message[]> = {
-  "1": [
-    { id: "m1", content: "Hi Priya! I submitted the referral for the Google position.", isMine: true, time: "10:30 AM", isRead: true },
-    { id: "m2", content: "Oh wow, that's amazing! Thank you so much! 🎉", isMine: false, time: "10:32 AM", isRead: true },
-    { id: "m3", content: "I'll prepare well for the interview. Any tips?", isMine: false, time: "10:33 AM", isRead: true },
-    { id: "m4", content: "Focus on system design and behavioral questions. I'll send you some resources.", isMine: true, time: "10:45 AM", isRead: true },
-    { id: "m5", content: "Thanks for the referral! 🙏", isMine: false, time: "11:00 AM", isRead: false },
-  ],
-  "2": [
-    { id: "m6", content: "Hey Arjun, how did the PM interview go?", isMine: true, time: "9:00 AM", isRead: true },
-    { id: "m7", content: "The interview went great! They asked about product sense and metrics.", isMine: false, time: "9:15 AM", isRead: true },
-  ],
-};
+function timeLabel(d: string) {
+  const s = Math.floor((Date.now() - new Date(d).getTime()) / 1000);
+  if (s < 60) return "now";
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
+  return `${Math.floor(s / 86400)}d`;
+}
 
 export default function MessagesPage() {
+  const { user } = useAuth();
+  const [peers, setPeers] = useState<ConversationPeer[]>([]);
   const [activeChat, setActiveChat] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messageInput, setMessageInput] = useState("");
-  const [conversations, setConversations] = useState(mockConversations);
-  const [messages, setMessages] = useState(mockMessages);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Build conversation list from messages table
+  const fetchConversations = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("messages")
+      .select("*")
+      .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+      .order("created_at", { ascending: false });
+
+    if (!data) { setLoading(false); return; }
+
+    const peerMap = new Map<string, { last_message: string; last_time: string; unread: number }>();
+    data.forEach((m) => {
+      const peerId = m.sender_id === user.id ? m.receiver_id : m.sender_id;
+      if (!peerMap.has(peerId)) {
+        peerMap.set(peerId, {
+          last_message: m.content,
+          last_time: m.created_at,
+          unread: (!m.is_read && m.receiver_id === user.id) ? 1 : 0,
+        });
+      } else if (!m.is_read && m.receiver_id === user.id) {
+        const existing = peerMap.get(peerId)!;
+        existing.unread += 1;
+      }
+    });
+
+    const peerIds = Array.from(peerMap.keys());
+    if (peerIds.length === 0) { setPeers([]); setLoading(false); return; }
+
+    const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", peerIds);
+    const profileMap = new Map((profiles || []).map((p) => [p.user_id, p.full_name]));
+
+    const result: ConversationPeer[] = peerIds.map((id) => ({
+      user_id: id,
+      full_name: profileMap.get(id) || "Alumni",
+      ...peerMap.get(id)!,
+    }));
+
+    setPeers(result);
+    setLoading(false);
+  };
+
+  // Fetch messages for active chat
+  const fetchMessages = async (peerId: string) => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("messages")
+      .select("*")
+      .or(`and(sender_id.eq.${user.id},receiver_id.eq.${peerId}),and(sender_id.eq.${peerId},receiver_id.eq.${user.id})`)
+      .order("created_at", { ascending: true });
+    if (data) setMessages(data);
+
+    // Mark received messages as read
+    await supabase.from("messages").update({ is_read: true, read_at: new Date().toISOString() })
+      .eq("sender_id", peerId).eq("receiver_id", user.id).eq("is_read", false);
+  };
+
+  useEffect(() => { fetchConversations(); }, [user]);
+
+  useEffect(() => {
+    if (activeChat) fetchMessages(activeChat);
+  }, [activeChat]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [activeChat, messages]);
+  }, [messages]);
 
-  const sendMessage = () => {
-    if (!messageInput.trim() || !activeChat) return;
-    const newMsg: Message = {
-      id: `m${Date.now()}`,
+  // Realtime messages
+  useEffect(() => {
+    if (!user) return;
+    const ch = supabase.channel("dm-realtime")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `receiver_id=eq.${user.id}` }, (payload) => {
+        const msg = payload.new as ChatMessage;
+        if (msg.sender_id === activeChat) {
+          setMessages((prev) => [...prev, msg]);
+          supabase.from("messages").update({ is_read: true, read_at: new Date().toISOString() }).eq("id", msg.id);
+        }
+        fetchConversations();
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages" }, (payload) => {
+        const updated = payload.new as ChatMessage;
+        setMessages((prev) => prev.map((m) => m.id === updated.id ? updated : m));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user, activeChat]);
+
+  const sendMessage = async () => {
+    if (!messageInput.trim() || !activeChat || !user) return;
+    const { error } = await supabase.from("messages").insert({
       content: messageInput.trim(),
-      isMine: true,
-      time: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
-      isRead: false,
-    };
-    setMessages((prev) => ({
-      ...prev,
-      [activeChat]: [...(prev[activeChat] || []), newMsg],
-    }));
-    setConversations((prev) =>
-      prev.map((c) => c.id === activeChat ? { ...c, lastMessage: messageInput.trim(), time: "now" } : c)
-    );
+      sender_id: user.id,
+      receiver_id: activeChat,
+    });
+    if (error) { toast.error(error.message); return; }
     setMessageInput("");
-    // Simulate read receipt
-    setTimeout(() => {
-      setMessages((prev) => ({
-        ...prev,
-        [activeChat]: (prev[activeChat] || []).map((m) => m.id === newMsg.id ? { ...m, isRead: true } : m),
-      }));
-    }, 2000);
+    fetchMessages(activeChat);
+    fetchConversations();
   };
 
-  const filteredConversations = conversations.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredPeers = peers.filter((p) => p.full_name.toLowerCase().includes(search.toLowerCase()));
+  const activePeer = peers.find((p) => p.user_id === activeChat);
 
-  const activePerson = conversations.find((c) => c.id === activeChat);
-  const activeMessages = activeChat ? messages[activeChat] || [] : [];
+  if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-accent" /></div>;
 
   return (
     <div className="flex h-[calc(100vh-7rem)] bg-card border border-border rounded-xl overflow-hidden shadow-card">
@@ -101,33 +161,26 @@ export default function MessagesPage() {
           <h2 className="font-heading font-semibold text-card-foreground mb-2">Messages</h2>
           <div className="flex items-center gap-2 bg-secondary rounded-lg px-3 py-1.5">
             <Search className="h-3.5 w-3.5 text-muted-foreground" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search conversations..."
-              className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none w-full"
-            />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search conversations..." className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none w-full" />
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {filteredConversations.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => { setActiveChat(c.id); setConversations((prev) => prev.map((x) => x.id === c.id ? { ...x, unread: 0 } : x)); }}
-              className={`w-full flex items-center gap-3 px-3 py-3 hover:bg-secondary/50 transition-colors text-left ${activeChat === c.id ? "bg-secondary" : ""}`}
-            >
-              <div className="relative">
-                <Avatar className="h-10 w-10">
-                  <AvatarFallback className="bg-accent/10 text-accent font-heading text-sm">{c.initials}</AvatarFallback>
-                </Avatar>
-                {c.online && <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-success border-2 border-card" />}
-              </div>
+          {filteredPeers.length === 0 && (
+            <div className="text-center py-12 px-4">
+              <Send className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground">No conversations yet</p>
+            </div>
+          )}
+          {filteredPeers.map((c) => (
+            <button key={c.user_id} onClick={() => setActiveChat(c.user_id)}
+              className={`w-full flex items-center gap-3 px-3 py-3 hover:bg-secondary/50 transition-colors text-left ${activeChat === c.user_id ? "bg-secondary" : ""}`}>
+              <Avatar className="h-10 w-10"><AvatarFallback className="bg-accent/10 text-accent font-heading text-sm">{getInitials(c.full_name)}</AvatarFallback></Avatar>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-card-foreground truncate">{c.name}</span>
-                  <span className="text-[10px] text-muted-foreground">{c.time}</span>
+                  <span className="text-sm font-medium text-card-foreground truncate">{c.full_name}</span>
+                  <span className="text-[10px] text-muted-foreground">{timeLabel(c.last_time)}</span>
                 </div>
-                <p className="text-xs text-muted-foreground truncate">{c.lastMessage}</p>
+                <p className="text-xs text-muted-foreground truncate">{c.last_message}</p>
               </div>
               {c.unread > 0 && (
                 <Badge className="bg-accent text-accent-foreground text-[10px] h-5 w-5 p-0 flex items-center justify-center rounded-full">{c.unread}</Badge>
@@ -139,42 +192,27 @@ export default function MessagesPage() {
 
       {/* Chat area */}
       <div className={`flex-1 flex flex-col ${!activeChat ? "hidden sm:flex" : "flex"}`}>
-        {activeChat && activePerson ? (
+        {activeChat && activePeer ? (
           <>
             <div className="h-14 border-b border-border flex items-center gap-3 px-4 shrink-0">
               <Button variant="ghost" size="icon" className="sm:hidden h-8 w-8" onClick={() => setActiveChat(null)}>
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-accent/10 text-accent font-heading text-xs">{activePerson.initials}</AvatarFallback>
-              </Avatar>
-              <div>
-                <p className="text-sm font-medium text-card-foreground">{activePerson.name}</p>
-                <p className="text-[10px] text-muted-foreground">{activePerson.online ? "Online" : "Offline"}</p>
-              </div>
+              <Avatar className="h-8 w-8"><AvatarFallback className="bg-accent/10 text-accent font-heading text-xs">{getInitials(activePeer.full_name)}</AvatarFallback></Avatar>
+              <p className="text-sm font-medium text-card-foreground">{activePeer.full_name}</p>
             </div>
 
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
-              {activeMessages.map((m) => (
-                <motion.div
-                  key={m.id}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className={`flex ${m.isMine ? "justify-end" : "justify-start"}`}
-                >
+              {messages.map((m) => (
+                <motion.div key={m.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                  className={`flex ${m.sender_id === user?.id ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[70%] rounded-2xl px-4 py-2.5 text-sm ${
-                    m.isMine
-                      ? "bg-primary text-primary-foreground rounded-br-md"
-                      : "bg-secondary text-foreground rounded-bl-md"
+                    m.sender_id === user?.id ? "bg-primary text-primary-foreground rounded-br-md" : "bg-secondary text-foreground rounded-bl-md"
                   }`}>
                     <p>{m.content}</p>
-                    <div className={`flex items-center gap-1 mt-1 ${m.isMine ? "justify-end" : ""}`}>
-                      <span className="text-[10px] opacity-60">{m.time}</span>
-                      {m.isMine && (
-                        m.isRead
-                          ? <CheckCheck className="h-3 w-3 opacity-60" />
-                          : <Check className="h-3 w-3 opacity-40" />
-                      )}
+                    <div className={`flex items-center gap-1 mt-1 ${m.sender_id === user?.id ? "justify-end" : ""}`}>
+                      <span className="text-[10px] opacity-60">{new Date(m.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>
+                      {m.sender_id === user?.id && (m.is_read ? <CheckCheck className="h-3 w-3 opacity-60" /> : <Check className="h-3 w-3 opacity-40" />)}
                     </div>
                   </div>
                 </motion.div>
@@ -182,15 +220,8 @@ export default function MessagesPage() {
             </div>
 
             <form onSubmit={(e) => { e.preventDefault(); sendMessage(); }} className="border-t border-border p-3 flex gap-2">
-              <Input
-                value={messageInput}
-                onChange={(e) => setMessageInput(e.target.value)}
-                placeholder="Type a message..."
-                className="flex-1"
-              />
-              <Button variant="hero" size="icon" type="submit" disabled={!messageInput.trim()}>
-                <Send className="h-4 w-4" />
-              </Button>
+              <Input value={messageInput} onChange={(e) => setMessageInput(e.target.value)} placeholder="Type a message..." className="flex-1" />
+              <Button variant="hero" size="icon" type="submit" disabled={!messageInput.trim()}><Send className="h-4 w-4" /></Button>
             </form>
           </>
         ) : (

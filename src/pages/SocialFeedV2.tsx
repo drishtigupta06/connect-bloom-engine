@@ -2,187 +2,229 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Heart, MessageCircle, Share2, MoreHorizontal, Send, Image, Smile,
-  TrendingUp, Calendar, Plus, X, ChevronDown, ChevronUp, Eye
+  TrendingUp, Calendar, Plus, X, ChevronDown, ChevronUp, Eye, Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
-interface Comment {
+interface DbPost {
   id: string;
-  author: string;
-  initials: string;
+  user_id: string;
   content: string;
-  time: string;
-  replies: Comment[];
+  image_url: string | null;
+  likes_count: number;
+  comments_count: number;
+  created_at: string;
+  profile?: { full_name: string; designation: string | null; company: string | null };
 }
 
-interface Post {
-  id: number;
-  author: string;
-  initials: string;
-  role: string;
-  time: string;
-  content: string;
-  likes: number;
-  comments: Comment[];
-  liked: boolean;
-}
-
-interface Story {
+interface DbComment {
   id: string;
-  name: string;
-  initials: string;
+  post_id: string;
+  user_id: string;
   content: string;
-  time: string;
-  views: number;
-  viewed: boolean;
+  parent_id: string | null;
+  created_at: string;
+  profile?: { full_name: string };
+  replies?: DbComment[];
 }
 
-const mockStories: Story[] = [
-  { id: "s1", name: "Your Story", initials: "+", content: "", time: "", views: 0, viewed: false },
-  { id: "s2", name: "Priya S.", initials: "PS", content: "Just got promoted to Staff Engineer at Google! 🎉🚀", time: "2h ago", views: 89, viewed: false },
-  { id: "s3", name: "Arjun M.", initials: "AM", content: "Attending the AI summit this weekend. Who else is going? 🤖", time: "5h ago", views: 45, viewed: false },
-  { id: "s4", name: "Maya P.", initials: "MP", content: "Mentored 3 students today. Feels amazing to give back! 💛", time: "8h ago", views: 120, viewed: true },
-  { id: "s5", name: "Vikram S.", initials: "VS", content: "We're hiring! 10 open positions at Flipkart. DM me.", time: "12h ago", views: 210, viewed: true },
-];
+interface DbStory {
+  id: string;
+  user_id: string;
+  content: string | null;
+  image_url: string | null;
+  created_at: string;
+  expires_at: string;
+  profile?: { full_name: string };
+  views_count?: number;
+}
 
-const initialPosts: Post[] = [
-  {
-    id: 1, author: "Priya Sharma", initials: "PS", role: "Senior Engineer at Google", time: "2h ago",
-    content: "Thrilled to announce that our team at Google just launched a new AI-powered accessibility feature! 🚀 Grateful to my alma mater for sparking my passion in AI. #AlumniPride",
-    likes: 234, liked: false,
-    comments: [
-      { id: "c1", author: "Arjun Mehta", initials: "AM", content: "Congratulations! This is amazing work! 👏", time: "1h ago", replies: [
-        { id: "c1r1", author: "Priya Sharma", initials: "PS", content: "Thank you Arjun! Means a lot coming from you.", time: "45m ago", replies: [] },
-      ]},
-      { id: "c2", author: "Maya Patel", initials: "MP", content: "So proud of you! Let's catch up at the next meetup.", time: "30m ago", replies: [] },
-    ],
-  },
-  {
-    id: 2, author: "Arjun Mehta", initials: "AM", role: "Product Manager at Microsoft", time: "5h ago",
-    content: "Looking for talented fresh graduates interested in Product Management. 3 open positions at Microsoft India. DM me or drop your resume — happy to refer alumni! 💼",
-    likes: 189, liked: true,
-    comments: [
-      { id: "c3", author: "Ravi Kumar", initials: "RK", content: "Just sent you a DM! Would love to apply.", time: "4h ago", replies: [] },
-    ],
-  },
-  {
-    id: 3, author: "Maya Patel", initials: "MP", role: "VP Growth at Razorpay", time: "1d ago",
-    content: "Just completed my 50th mentoring session through AlumniOS! The skill gap analyzer really helped me understand what students need. 🎯",
-    likes: 312, liked: false,
-    comments: [],
-  },
-];
+function getInitials(name: string) {
+  return name.split(" ").map(w => w[0]).join("").substring(0, 2).toUpperCase();
+}
 
-const trendingTopics = [
-  { tag: "#AIinTech", count: "2.4k" },
-  { tag: "#AlumniHiring", count: "1.8k" },
-  { tag: "#StartupLife", count: "1.2k" },
-  { tag: "#MentorshipMatters", count: "980" },
-];
+function timeAgo(d: string) {
+  const s = Math.floor((Date.now() - new Date(d).getTime()) / 1000);
+  if (s < 60) return "now";
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
+  return `${Math.floor(s / 86400)}d`;
+}
 
-const upcomingEvents = [
-  { title: "AI/ML Alumni Meetup", date: "Mar 5", attendees: 145 },
-  { title: "Annual Reunion 2026", date: "Apr 12", attendees: 520 },
-  { title: "Startup Pitch Night", date: "Mar 18", attendees: 89 },
-];
-
-function CommentThread({ comment, depth = 0, onReply }: { comment: Comment; depth?: number; onReply: (parentId: string, content: string) => void }) {
-  const [showReplyInput, setShowReplyInput] = useState(false);
-  const [replyContent, setReplyContent] = useState("");
-  const [showReplies, setShowReplies] = useState(depth < 1);
+function CommentThread({ comment, onReply }: { comment: DbComment; onReply: (parentId: string, content: string) => void }) {
+  const [showReply, setShowReply] = useState(false);
+  const [reply, setReply] = useState("");
+  const [showReplies, setShowReplies] = useState(false);
+  const name = comment.profile?.full_name || "Alumni";
 
   return (
-    <div className={depth > 0 ? "ml-8 border-l-2 border-border pl-3" : ""}>
+    <div>
       <div className="flex gap-2 py-2">
         <Avatar className="h-7 w-7 shrink-0">
-          <AvatarFallback className="bg-accent/10 text-accent text-[10px] font-heading">{comment.initials}</AvatarFallback>
+          <AvatarFallback className="bg-accent/10 text-accent text-[10px] font-heading">{getInitials(name)}</AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0">
           <div className="bg-secondary rounded-lg px-3 py-2">
-            <span className="text-xs font-semibold text-card-foreground">{comment.author}</span>
+            <span className="text-xs font-semibold text-card-foreground">{name}</span>
             <p className="text-xs text-card-foreground mt-0.5">{comment.content}</p>
           </div>
           <div className="flex items-center gap-3 mt-1 px-1">
-            <span className="text-[10px] text-muted-foreground">{comment.time}</span>
-            <button onClick={() => setShowReplyInput(!showReplyInput)} className="text-[10px] text-muted-foreground hover:text-accent font-medium">Reply</button>
+            <span className="text-[10px] text-muted-foreground">{timeAgo(comment.created_at)}</span>
+            <button onClick={() => setShowReply(!showReply)} className="text-[10px] text-muted-foreground hover:text-accent font-medium">Reply</button>
           </div>
-          {showReplyInput && (
+          {showReply && (
             <div className="flex gap-2 mt-2">
-              <input
-                value={replyContent}
-                onChange={(e) => setReplyContent(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && replyContent.trim()) { onReply(comment.id, replyContent.trim()); setReplyContent(""); setShowReplyInput(false); } }}
-                placeholder="Write a reply..."
-                className="flex-1 bg-secondary rounded-md px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none"
-              />
-              <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => { if (replyContent.trim()) { onReply(comment.id, replyContent.trim()); setReplyContent(""); setShowReplyInput(false); } }}>
-                <Send className="h-3 w-3" />
-              </Button>
+              <input value={reply} onChange={(e) => setReply(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && reply.trim()) { onReply(comment.id, reply.trim()); setReply(""); setShowReply(false); } }}
+                placeholder="Write a reply..." className="flex-1 bg-secondary rounded-md px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none" />
             </div>
           )}
         </div>
       </div>
-      {comment.replies.length > 0 && (
-        <>
+      {(comment.replies || []).length > 0 && (
+        <div className="ml-8 border-l-2 border-border pl-3">
           {!showReplies && (
-            <button onClick={() => setShowReplies(true)} className="flex items-center gap-1 text-[10px] text-accent ml-9 mb-1">
-              <ChevronDown className="h-3 w-3" /> {comment.replies.length} {comment.replies.length === 1 ? "reply" : "replies"}
+            <button onClick={() => setShowReplies(true)} className="flex items-center gap-1 text-[10px] text-accent mb-1">
+              <ChevronDown className="h-3 w-3" /> {comment.replies!.length} replies
             </button>
           )}
-          {showReplies && comment.replies.map((r) => (
-            <CommentThread key={r.id} comment={r} depth={depth + 1} onReply={onReply} />
+          {showReplies && comment.replies!.map((r) => (
+            <CommentThread key={r.id} comment={r} onReply={onReply} />
           ))}
-        </>
+        </div>
       )}
     </div>
   );
 }
 
 export default function SocialFeedV2() {
-  const [posts, setPosts] = useState<Post[]>(initialPosts);
+  const { user } = useAuth();
+  const [posts, setPosts] = useState<DbPost[]>([]);
+  const [stories, setStories] = useState<DbStory[]>([]);
   const [postContent, setPostContent] = useState("");
-  const [stories, setStories] = useState(mockStories);
-  const [activeStory, setActiveStory] = useState<Story | null>(null);
+  const [activeStory, setActiveStory] = useState<DbStory | null>(null);
+  const [showComments, setShowComments] = useState<Record<string, boolean>>({});
+  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
+  const [postComments, setPostComments] = useState<Record<string, DbComment[]>>({});
+  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
 
-  const toggleLike = (id: number) => {
-    setPosts((prev) => prev.map((p) =>
-      p.id === id ? { ...p, liked: !p.liked, likes: p.liked ? p.likes - 1 : p.likes + 1 } : p
-    ));
+  // Fetch posts with profiles
+  const fetchPosts = async () => {
+    const { data } = await supabase.from("posts").select("*").order("created_at", { ascending: false }).limit(50);
+    if (!data) return;
+    const userIds = [...new Set(data.map((p) => p.user_id))];
+    const { data: profiles } = await supabase.from("profiles").select("user_id, full_name, designation, company").in("user_id", userIds);
+    const profileMap = new Map((profiles || []).map((p) => [p.user_id, p]));
+    setPosts(data.map((p) => ({ ...p, profile: profileMap.get(p.user_id) || { full_name: "Alumni", designation: null, company: null } })));
   };
 
-  const [showComments, setShowComments] = useState<Record<number, boolean>>({});
-  const [commentInputs, setCommentInputs] = useState<Record<number, string>>({});
-
-  const addComment = (postId: number) => {
-    const content = commentInputs[postId]?.trim();
-    if (!content) return;
-    const newComment: Comment = { id: `c${Date.now()}`, author: "You", initials: "YO", content, time: "now", replies: [] };
-    setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, comments: [...p.comments, newComment] } : p));
-    setCommentInputs((prev) => ({ ...prev, [postId]: "" }));
+  // Fetch stories
+  const fetchStories = async () => {
+    const { data } = await supabase.from("stories").select("*").order("created_at", { ascending: false });
+    if (!data) return;
+    const userIds = [...new Set(data.map((s) => s.user_id))];
+    const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", userIds);
+    const profileMap = new Map((profiles || []).map((p) => [p.user_id, p]));
+    setStories(data.map((s) => ({ ...s, profile: profileMap.get(s.user_id) || { full_name: "Alumni" } })));
   };
 
-  const addReply = (postId: number, parentId: string, content: string) => {
-    const newReply: Comment = { id: `r${Date.now()}`, author: "You", initials: "YO", content, time: "now", replies: [] };
-    const addReplyToComment = (comments: Comment[]): Comment[] =>
-      comments.map((c) => c.id === parentId ? { ...c, replies: [...c.replies, newReply] } : { ...c, replies: addReplyToComment(c.replies) });
-    setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, comments: addReplyToComment(p.comments) } : p));
+  // Fetch user's likes
+  const fetchLikes = async () => {
+    if (!user) return;
+    const { data } = await supabase.from("post_likes").select("post_id").eq("user_id", user.id);
+    if (data) setLikedPosts(new Set(data.map((l) => l.post_id)));
   };
 
-  const createPost = () => {
-    if (!postContent.trim()) return;
-    const newPost: Post = {
-      id: Date.now(), author: "You", initials: "YO", role: "Alumni", time: "now",
-      content: postContent.trim(), likes: 0, comments: [], liked: false,
-    };
-    setPosts((prev) => [newPost, ...prev]);
+  useEffect(() => {
+    Promise.all([fetchPosts(), fetchStories(), fetchLikes()]).then(() => setLoading(false));
+    // Realtime for new posts
+    const ch = supabase.channel("feed-posts").on("postgres_changes", { event: "INSERT", schema: "public", table: "posts" }, () => fetchPosts()).subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user]);
+
+  // Fetch comments for a post
+  const fetchComments = async (postId: string) => {
+    const { data } = await supabase.from("comments").select("*").eq("post_id", postId).order("created_at", { ascending: true });
+    if (!data) return;
+    const userIds = [...new Set(data.map((c) => c.user_id))];
+    const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", userIds);
+    const profileMap = new Map((profiles || []).map((p) => [p.user_id, p]));
+    const flat = data.map((c) => ({ ...c, profile: profileMap.get(c.user_id) || { full_name: "Alumni" }, replies: [] as DbComment[] }));
+      const map = new Map<string, DbComment>();
+      const roots: DbComment[] = [];
+      flat.forEach((c) => map.set(c.id, c));
+      flat.forEach((c) => {
+        if (c.parent_id && map.has(c.parent_id)) {
+          map.get(c.parent_id)!.replies!.push(c);
+        } else {
+          roots.push(c);
+        }
+      });
+      setPostComments((prev) => ({ ...prev, [postId]: roots }));
+  };
+
+  const toggleComments = (postId: string) => {
+    const next = !showComments[postId];
+    setShowComments((prev) => ({ ...prev, [postId]: next }));
+    if (next && !postComments[postId]) fetchComments(postId);
+  };
+
+  const toggleLike = async (postId: string, currentLikes: number) => {
+    if (!user) return;
+    const liked = likedPosts.has(postId);
+    if (liked) {
+      await supabase.from("post_likes").delete().eq("post_id", postId).eq("user_id", user.id);
+      await supabase.from("posts").update({ likes_count: Math.max(0, currentLikes - 1) }).eq("id", postId);
+      setLikedPosts((prev) => { const n = new Set(prev); n.delete(postId); return n; });
+      setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, likes_count: Math.max(0, p.likes_count - 1) } : p));
+    } else {
+      await supabase.from("post_likes").insert({ post_id: postId, user_id: user.id });
+      await supabase.from("posts").update({ likes_count: currentLikes + 1 }).eq("id", postId);
+      setLikedPosts((prev) => new Set(prev).add(postId));
+      setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, likes_count: p.likes_count + 1 } : p));
+    }
+  };
+
+  const createPost = async () => {
+    if (!postContent.trim() || !user) return;
+    const { error } = await supabase.from("posts").insert({ content: postContent.trim(), user_id: user.id });
+    if (error) { toast.error(error.message); return; }
     setPostContent("");
     toast.success("Post published!");
+    fetchPosts();
   };
+
+  const addComment = async (postId: string, parentId?: string) => {
+    if (!user) return;
+    const content = parentId ? undefined : commentInputs[postId]?.trim();
+    if (!parentId && !content) return;
+    const { error } = await supabase.from("comments").insert({
+      post_id: postId,
+      user_id: user.id,
+      content: content || "",
+      parent_id: parentId || null,
+    });
+    if (error) { toast.error(error.message); return; }
+    if (!parentId) setCommentInputs((prev) => ({ ...prev, [postId]: "" }));
+    fetchComments(postId);
+  };
+
+  const addReply = async (postId: string, parentId: string, content: string) => {
+    if (!user) return;
+    await supabase.from("comments").insert({ post_id: postId, user_id: user.id, content, parent_id: parentId });
+    fetchComments(postId);
+  };
+
+  const userInitials = user?.email?.substring(0, 2).toUpperCase() || "YO";
+
+  if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-accent" /></div>;
 
   return (
     <div className="grid lg:grid-cols-[1fr_320px] gap-6">
@@ -194,47 +236,32 @@ export default function SocialFeedV2() {
 
         {/* Stories */}
         <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
-          {stories.map((story) => (
-            <button
-              key={story.id}
-              onClick={() => { if (story.content) { setActiveStory(story); setStories((prev) => prev.map((s) => s.id === story.id ? { ...s, viewed: true } : s)); } }}
-              className="flex flex-col items-center gap-1.5 shrink-0"
-            >
-              <div className={`h-16 w-16 rounded-full p-0.5 ${
-                story.id === "s1" ? "border-2 border-dashed border-muted-foreground/30"
-                : story.viewed ? "border-2 border-muted-foreground/20"
-                : "bg-gradient-to-br from-accent to-warning border-0 p-[3px]"
-              }`}>
-                <div className="h-full w-full rounded-full bg-card flex items-center justify-center">
-                  {story.id === "s1" ? (
-                    <Plus className="h-5 w-5 text-muted-foreground" />
-                  ) : (
-                    <span className="font-heading font-bold text-sm text-accent">{story.initials}</span>
-                  )}
+          {stories.map((story) => {
+            const name = story.profile?.full_name || "Alumni";
+            return (
+              <button key={story.id} onClick={() => setActiveStory(story)} className="flex flex-col items-center gap-1.5 shrink-0">
+                <div className="h-16 w-16 rounded-full p-[3px] bg-gradient-to-br from-accent to-warning">
+                  <div className="h-full w-full rounded-full bg-card flex items-center justify-center">
+                    <span className="font-heading font-bold text-sm text-accent">{getInitials(name)}</span>
+                  </div>
                 </div>
-              </div>
-              <span className="text-[10px] text-muted-foreground w-14 text-center truncate">{story.name}</span>
-            </button>
-          ))}
+                <span className="text-[10px] text-muted-foreground w-14 text-center truncate">{name.split(" ")[0]}</span>
+              </button>
+            );
+          })}
+          {stories.length === 0 && <p className="text-xs text-muted-foreground">No active stories</p>}
         </div>
 
-        {/* Story viewer modal */}
         <Dialog open={!!activeStory} onOpenChange={() => setActiveStory(null)}>
           <DialogContent className="sm:max-w-md bg-primary border-none">
             {activeStory && (
               <div className="text-center py-8">
                 <div className="flex items-center gap-2 justify-center mb-6">
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-accent/20 text-accent font-heading text-xs">{activeStory.initials}</AvatarFallback>
-                  </Avatar>
-                  <span className="text-sm font-medium text-primary-foreground">{activeStory.name}</span>
-                  <span className="text-xs text-primary-foreground/50">{activeStory.time}</span>
+                  <Avatar className="h-8 w-8"><AvatarFallback className="bg-accent/20 text-accent font-heading text-xs">{getInitials(activeStory.profile?.full_name || "")}</AvatarFallback></Avatar>
+                  <span className="text-sm font-medium text-primary-foreground">{activeStory.profile?.full_name}</span>
+                  <span className="text-xs text-primary-foreground/50">{timeAgo(activeStory.created_at)}</span>
                 </div>
                 <p className="text-lg text-primary-foreground font-medium leading-relaxed">{activeStory.content}</p>
-                <div className="flex items-center justify-center gap-1 mt-6 text-primary-foreground/40">
-                  <Eye className="h-3.5 w-3.5" />
-                  <span className="text-xs">{activeStory.views} views</span>
-                </div>
               </div>
             )}
           </DialogContent>
@@ -243,16 +270,9 @@ export default function SocialFeedV2() {
         {/* Composer */}
         <div className="bg-card border border-border rounded-xl p-5 shadow-card">
           <div className="flex gap-3">
-            <Avatar className="h-10 w-10 shrink-0">
-              <AvatarFallback className="bg-accent text-accent-foreground font-heading text-sm">YO</AvatarFallback>
-            </Avatar>
+            <Avatar className="h-10 w-10 shrink-0"><AvatarFallback className="bg-accent text-accent-foreground font-heading text-sm">{userInitials}</AvatarFallback></Avatar>
             <div className="flex-1">
-              <textarea
-                value={postContent}
-                onChange={(e) => setPostContent(e.target.value)}
-                placeholder="Share an update, achievement, or opportunity..."
-                className="w-full bg-secondary rounded-lg px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none resize-none min-h-[80px]"
-              />
+              <textarea value={postContent} onChange={(e) => setPostContent(e.target.value)} placeholder="Share an update, achievement, or opportunity..." className="w-full bg-secondary rounded-lg px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none resize-none min-h-[80px]" />
               <div className="flex items-center justify-between mt-3">
                 <div className="flex gap-2">
                   <Button variant="ghost" size="sm"><Image className="h-4 w-4 text-muted-foreground" /></Button>
@@ -267,71 +287,58 @@ export default function SocialFeedV2() {
         </div>
 
         {/* Posts */}
-        {posts.map((post, i) => (
-          <motion.div
-            key={post.id}
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.08 }}
-            className="bg-card border border-border rounded-xl p-5 shadow-card"
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10">
-                  <AvatarFallback className="bg-accent/10 text-accent font-heading text-sm">{post.initials}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="text-sm font-semibold text-card-foreground">{post.author}</p>
-                  <p className="text-xs text-muted-foreground">{post.role} • {post.time}</p>
+        {posts.map((post, i) => {
+          const name = post.profile?.full_name || "Alumni";
+          const role = [post.profile?.designation, post.profile?.company].filter(Boolean).join(" at ") || "Alumni";
+          const liked = likedPosts.has(post.id);
+          const comments = postComments[post.id] || [];
+
+          return (
+            <motion.div key={post.id} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="bg-card border border-border rounded-xl p-5 shadow-card">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-10 w-10"><AvatarFallback className="bg-accent/10 text-accent font-heading text-sm">{getInitials(name)}</AvatarFallback></Avatar>
+                  <div>
+                    <p className="text-sm font-semibold text-card-foreground">{name}</p>
+                    <p className="text-xs text-muted-foreground">{role} • {timeAgo(post.created_at)}</p>
+                  </div>
                 </div>
               </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-              </Button>
-            </div>
+              <p className="text-sm text-card-foreground leading-relaxed mb-4">{post.content}</p>
+              {post.image_url && <img src={post.image_url} alt="" className="rounded-lg mb-4 max-h-80 w-full object-cover" />}
+              <div className="flex items-center gap-1 pt-3 border-t border-border">
+                <Button variant="ghost" size="sm" onClick={() => toggleLike(post.id, post.likes_count)} className={liked ? "text-destructive" : "text-muted-foreground"}>
+                  <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} /> {post.likes_count}
+                </Button>
+                <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => toggleComments(post.id)}>
+                  <MessageCircle className="h-4 w-4" /> {post.comments_count}
+                </Button>
+                <Button variant="ghost" size="sm" className="text-muted-foreground"><Share2 className="h-4 w-4" /> Share</Button>
+              </div>
 
-            <p className="text-sm text-card-foreground leading-relaxed mb-4">{post.content}</p>
+              <AnimatePresence>
+                {showComments[post.id] && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mt-3 pt-3 border-t border-border">
+                    {comments.map((c) => <CommentThread key={c.id} comment={c} onReply={(pid, content) => addReply(post.id, pid, content)} />)}
+                    <div className="flex gap-2 mt-2">
+                      <input value={commentInputs[post.id] || ""} onChange={(e) => setCommentInputs((prev) => ({ ...prev, [post.id]: e.target.value }))}
+                        onKeyDown={(e) => e.key === "Enter" && addComment(post.id)} placeholder="Write a comment..."
+                        className="flex-1 bg-secondary rounded-lg px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground outline-none" />
+                      <Button variant="ghost" size="sm" className="h-8" onClick={() => addComment(post.id)}><Send className="h-3 w-3" /></Button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          );
+        })}
 
-            <div className="flex items-center gap-1 pt-3 border-t border-border">
-              <Button
-                variant="ghost" size="sm"
-                onClick={() => toggleLike(post.id)}
-                className={post.liked ? "text-destructive" : "text-muted-foreground"}
-              >
-                <Heart className={`h-4 w-4 ${post.liked ? "fill-current" : ""}`} /> {post.likes}
-              </Button>
-              <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setShowComments((prev) => ({ ...prev, [post.id]: !prev[post.id] }))}>
-                <MessageCircle className="h-4 w-4" /> {post.comments.length}
-              </Button>
-              <Button variant="ghost" size="sm" className="text-muted-foreground">
-                <Share2 className="h-4 w-4" /> Share
-              </Button>
-            </div>
-
-            {/* Comments */}
-            <AnimatePresence>
-              {showComments[post.id] && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="mt-3 pt-3 border-t border-border">
-                  {post.comments.map((c) => (
-                    <CommentThread key={c.id} comment={c} onReply={(parentId, content) => addReply(post.id, parentId, content)} />
-                  ))}
-                  <div className="flex gap-2 mt-2">
-                    <input
-                      value={commentInputs[post.id] || ""}
-                      onChange={(e) => setCommentInputs((prev) => ({ ...prev, [post.id]: e.target.value }))}
-                      onKeyDown={(e) => e.key === "Enter" && addComment(post.id)}
-                      placeholder="Write a comment..."
-                      className="flex-1 bg-secondary rounded-lg px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground outline-none"
-                    />
-                    <Button variant="ghost" size="sm" className="h-8" onClick={() => addComment(post.id)}>
-                      <Send className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        ))}
+        {posts.length === 0 && (
+          <div className="text-center py-12 bg-card border border-border rounded-xl shadow-card">
+            <MessageCircle className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">No posts yet. Be the first to share!</p>
+          </div>
+        )}
       </div>
 
       {/* Sidebar */}
@@ -341,7 +348,7 @@ export default function SocialFeedV2() {
             <TrendingUp className="h-4 w-4 text-accent" /> Trending
           </h3>
           <div className="space-y-3">
-            {trendingTopics.map((t) => (
+            {[{ tag: "#AIinTech", count: "2.4k" }, { tag: "#AlumniHiring", count: "1.8k" }, { tag: "#StartupLife", count: "1.2k" }].map((t) => (
               <div key={t.tag} className="flex items-center justify-between">
                 <span className="text-sm font-medium text-info">{t.tag}</span>
                 <span className="text-xs text-muted-foreground">{t.count} posts</span>
@@ -354,7 +361,7 @@ export default function SocialFeedV2() {
             <Calendar className="h-4 w-4 text-accent" /> Upcoming Events
           </h3>
           <div className="space-y-3">
-            {upcomingEvents.map((e) => (
+            {[{ title: "AI/ML Alumni Meetup", date: "Mar 5", attendees: 145 }, { title: "Annual Reunion 2026", date: "Apr 12", attendees: 520 }].map((e) => (
               <div key={e.title} className="p-3 bg-secondary rounded-lg">
                 <p className="text-sm font-medium text-foreground">{e.title}</p>
                 <p className="text-xs text-muted-foreground mt-1">{e.date} • {e.attendees} attending</p>
