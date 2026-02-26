@@ -1,9 +1,11 @@
 import { motion, useMotionValue, useTransform, animate, useInView } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Users, Briefcase, TrendingUp, Brain, Sparkles, Globe, Shield, Play, Star, Quote, ChevronLeft, ChevronRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ArrowRight, Users, Briefcase, TrendingUp, Brain, Sparkles, Globe, Shield, Play, Star, Quote, ChevronLeft, ChevronRight, Award } from "lucide-react";
 import { Link } from "react-router-dom";
 import heroImage from "@/assets/hero-network.jpg";
+import { supabase } from "@/integrations/supabase/client";
 
 /* ─── Animated Counter ─── */
 function AnimatedStat({ value, suffix = "", label }: { value: number; suffix?: string; label: string }) {
@@ -90,7 +92,12 @@ const fadeUp = {
 export default function LandingPage() {
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
   const [showVideo, setShowVideo] = useState(false);
+  const [featuredStories, setFeaturedStories] = useState<any[]>([]);
 
+  useEffect(() => {
+    supabase.from("success_stories").select("*").eq("is_featured", true).eq("is_approved", true).limit(3).order("created_at", { ascending: false })
+      .then(({ data }) => { if (data) setFeaturedStories(data); });
+  }, []);
   // Auto-rotate testimonials
   useEffect(() => {
     const interval = setInterval(() => {
@@ -325,6 +332,39 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* Featured Success Stories */}
+      {featuredStories.length > 0 && (
+        <section className="py-24 bg-background">
+          <div className="container mx-auto px-6">
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-14">
+              <h2 className="text-3xl md:text-5xl font-heading font-bold text-foreground mb-4">
+                Alumni <span className="text-gradient-primary">Success Stories</span>
+              </h2>
+              <p className="text-muted-foreground max-w-lg mx-auto">Real journeys, real impact</p>
+            </motion.div>
+            <div className="grid md:grid-cols-3 gap-6">
+              {featuredStories.map((s, i) => (
+                <motion.div key={s.id} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
+                  className="bg-card border border-border rounded-2xl overflow-hidden shadow-card hover:shadow-md transition-all hover:-translate-y-1">
+                  {s.image_url && <div className="aspect-video bg-secondary overflow-hidden"><img src={s.image_url} alt={s.title} className="w-full h-full object-cover" /></div>}
+                  <div className="p-6">
+                    <Badge className="bg-accent/10 text-accent border-accent/20 mb-2 text-xs">⭐ Featured</Badge>
+                    <h3 className="font-heading font-semibold text-card-foreground text-lg mb-2">{s.title}</h3>
+                    <p className="text-sm text-muted-foreground line-clamp-3">{s.content}</p>
+                    {s.tags?.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-3">{s.tags.map((t: string) => <Badge key={t} variant="outline" className="text-[10px]">{t}</Badge>)}</div>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+            <div className="text-center mt-8">
+              <Link to="/auth"><Button variant="outline">View All Stories <ArrowRight className="h-4 w-4" /></Button></Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* CTA */}
       <section className="py-24 bg-background">

@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Users, MessageSquare, Calendar, Briefcase, Brain,
   BarChart3, Settings, Sparkles, ChevronLeft, Bell, Search, LogOut,
   Target, Trophy, Share2, User, Send, Palette, Shield, Check, X, BellRing,
-  ShieldCheck, Award, Heart, TrendingUp
+  ShieldCheck, Award, Heart, TrendingUp, Globe, MessageCircle, DollarSign
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -29,8 +29,13 @@ const navItems = [
   { icon: Heart, label: "Mentorship", path: "/dashboard/mentorship" },
   { icon: Users, label: "Mentor Dashboard", path: "/dashboard/mentor-dashboard" },
   { icon: TrendingUp, label: "Career Path", path: "/dashboard/career-path" },
+  { icon: Award, label: "Success Stories", path: "/dashboard/stories" },
+  { icon: MessageCircle, label: "Career Forum", path: "/dashboard/forum" },
+  { icon: DollarSign, label: "Fundraising", path: "/dashboard/fundraising" },
+  { icon: Globe, label: "Global Map", path: "/dashboard/global-map" },
   { icon: User, label: "My Profile", path: "/dashboard/profile" },
   { icon: BarChart3, label: "Analytics", path: "/dashboard/analytics" },
+  { icon: BarChart3, label: "Admin Analytics", path: "/dashboard/admin-analytics" },
   { icon: Award, label: "Impact", path: "/dashboard/impact" },
   { icon: ShieldCheck, label: "Verification", path: "/dashboard/verification" },
   { icon: Palette, label: "Branding", path: "/dashboard/branding" },
