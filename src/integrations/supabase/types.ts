@@ -56,6 +56,60 @@ export type Database = {
           },
         ]
       }
+      connections: {
+        Row: {
+          created_at: string
+          id: string
+          relation_type: string
+          source_user_id: string
+          status: string
+          target_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          relation_type?: string
+          source_user_id: string
+          status?: string
+          target_user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          relation_type?: string
+          source_user_id?: string
+          status?: string
+          target_user_id?: string
+        }
+        Relationships: []
+      }
+      engagement_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          points: number
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          points?: number
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          points?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       event_rsvps: {
         Row: {
           created_at: string
@@ -149,6 +203,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      impact_events: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          outcome: string | null
+          source_user_id: string
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          outcome?: string | null
+          source_user_id: string
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          outcome?: string | null
+          source_user_id?: string
+          target_user_id?: string | null
+        }
+        Relationships: []
       }
       institutions: {
         Row: {
@@ -407,6 +491,7 @@ export type Database = {
           is_hiring: boolean | null
           is_mentor: boolean | null
           is_verified: boolean | null
+          last_login: string | null
           location: string | null
           passing_year: number | null
           profile_completion: number | null
@@ -433,6 +518,7 @@ export type Database = {
           is_hiring?: boolean | null
           is_mentor?: boolean | null
           is_verified?: boolean | null
+          last_login?: string | null
           location?: string | null
           passing_year?: number | null
           profile_completion?: number | null
@@ -459,6 +545,7 @@ export type Database = {
           is_hiring?: boolean | null
           is_mentor?: boolean | null
           is_verified?: boolean | null
+          last_login?: string | null
           location?: string | null
           passing_year?: number | null
           profile_completion?: number | null
@@ -569,6 +656,30 @@ export type Database = {
           },
         ]
       }
+      user_embeddings: {
+        Row: {
+          embedding: Json
+          id: string
+          profile_hash: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          embedding?: Json
+          id?: string
+          profile_hash?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          embedding?: Json
+          id?: string
+          profile_hash?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -584,6 +695,39 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      verification_requests: {
+        Row: {
+          created_at: string
+          id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          user_id: string
+          verification_data: Json | null
+          verification_type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          user_id: string
+          verification_data?: Json | null
+          verification_type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          user_id?: string
+          verification_data?: Json | null
+          verification_type?: string
         }
         Relationships: []
       }
