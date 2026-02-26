@@ -28,6 +28,11 @@ import ImpactDashboard from "./pages/ImpactDashboard";
 import MentorshipPage from "./pages/MentorshipPage";
 import MentorDashboard from "./pages/MentorDashboard";
 import CareerPathPage from "./pages/CareerPathPage";
+import SuccessStoriesPage from "./pages/SuccessStoriesPage";
+import FundraisingPage from "./pages/FundraisingPage";
+import CareerForumPage from "./pages/CareerForumPage";
+import GlobalAlumniMap from "./pages/GlobalAlumniMap";
+import AdminAnalyticsPage from "./pages/AdminAnalyticsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -68,6 +73,11 @@ const AppRoutes = () => (
     <Route path="/dashboard/mentorship" element={<DashPage><MentorshipPage /></DashPage>} />
     <Route path="/dashboard/mentor-dashboard" element={<DashPage><MentorDashboard /></DashPage>} />
     <Route path="/dashboard/career-path" element={<DashPage><CareerPathPage /></DashPage>} />
+    <Route path="/dashboard/stories" element={<DashPage><SuccessStoriesPage /></DashPage>} />
+    <Route path="/dashboard/fundraising" element={<DashPage><FundraisingPage /></DashPage>} />
+    <Route path="/dashboard/forum" element={<DashPage><CareerForumPage /></DashPage>} />
+    <Route path="/dashboard/global-map" element={<DashPage><GlobalAlumniMap /></DashPage>} />
+    <Route path="/dashboard/admin-analytics" element={<DashPage><AdminAnalyticsPage /></DashPage>} />
     <Route path="/dashboard/settings" element={<DashPage><div className="text-foreground font-heading text-2xl font-bold">Settings — Coming Soon</div></DashPage>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
