@@ -13,6 +13,10 @@ import SocialFeed from "./pages/SocialFeed";
 import EventsPage from "./pages/EventsPage";
 import OpportunitiesPage from "./pages/OpportunitiesPage";
 import AIAssistant from "./pages/AIAssistant";
+import SkillGapAnalyzer from "./pages/SkillGapAnalyzer";
+import ProfilePage from "./pages/ProfilePage";
+import LeaderboardPage from "./pages/LeaderboardPage";
+import NetworkGraph from "./pages/NetworkGraph";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,18 +28,26 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function DashPage({ children }: { children: React.ReactNode }) {
+  return <ProtectedRoute><DashboardLayout>{children}</DashboardLayout></ProtectedRoute>;
+}
+
 const AppRoutes = () => (
   <Routes>
     <Route path="/" element={<LandingPage />} />
     <Route path="/auth" element={<AuthPage />} />
-    <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout><DashboardOverview /></DashboardLayout></ProtectedRoute>} />
-    <Route path="/dashboard/directory" element={<ProtectedRoute><DashboardLayout><AlumniDirectory /></DashboardLayout></ProtectedRoute>} />
-    <Route path="/dashboard/feed" element={<ProtectedRoute><DashboardLayout><SocialFeed /></DashboardLayout></ProtectedRoute>} />
-    <Route path="/dashboard/events" element={<ProtectedRoute><DashboardLayout><EventsPage /></DashboardLayout></ProtectedRoute>} />
-    <Route path="/dashboard/opportunities" element={<ProtectedRoute><DashboardLayout><OpportunitiesPage /></DashboardLayout></ProtectedRoute>} />
-    <Route path="/dashboard/ai" element={<ProtectedRoute><DashboardLayout><AIAssistant /></DashboardLayout></ProtectedRoute>} />
-    <Route path="/dashboard/analytics" element={<ProtectedRoute><DashboardLayout><div className="text-foreground font-heading text-2xl font-bold">Analytics — Coming Soon</div></DashboardLayout></ProtectedRoute>} />
-    <Route path="/dashboard/settings" element={<ProtectedRoute><DashboardLayout><div className="text-foreground font-heading text-2xl font-bold">Settings — Coming Soon</div></DashboardLayout></ProtectedRoute>} />
+    <Route path="/dashboard" element={<DashPage><DashboardOverview /></DashPage>} />
+    <Route path="/dashboard/directory" element={<DashPage><AlumniDirectory /></DashPage>} />
+    <Route path="/dashboard/feed" element={<DashPage><SocialFeed /></DashPage>} />
+    <Route path="/dashboard/events" element={<DashPage><EventsPage /></DashPage>} />
+    <Route path="/dashboard/opportunities" element={<DashPage><OpportunitiesPage /></DashPage>} />
+    <Route path="/dashboard/ai" element={<DashPage><AIAssistant /></DashPage>} />
+    <Route path="/dashboard/skill-gap" element={<DashPage><SkillGapAnalyzer /></DashPage>} />
+    <Route path="/dashboard/profile" element={<DashPage><ProfilePage /></DashPage>} />
+    <Route path="/dashboard/leaderboard" element={<DashPage><LeaderboardPage /></DashPage>} />
+    <Route path="/dashboard/network" element={<DashPage><NetworkGraph /></DashPage>} />
+    <Route path="/dashboard/analytics" element={<DashPage><div className="text-foreground font-heading text-2xl font-bold">Analytics — Coming Soon</div></DashPage>} />
+    <Route path="/dashboard/settings" element={<DashPage><div className="text-foreground font-heading text-2xl font-bold">Settings — Coming Soon</div></DashPage>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
