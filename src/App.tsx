@@ -34,6 +34,7 @@ import CareerForumPage from "./pages/CareerForumPage";
 import GlobalAlumniMap from "./pages/GlobalAlumniMap";
 import AdminAnalyticsPage from "./pages/AdminAnalyticsPage";
 import MailingCampaignsPage from "./pages/MailingCampaignsPage";
+import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -80,7 +81,7 @@ const AppRoutes = () => (
     <Route path="/dashboard/global-map" element={<DashPage><GlobalAlumniMap /></DashPage>} />
     <Route path="/dashboard/admin-analytics" element={<DashPage><AdminAnalyticsPage /></DashPage>} />
     <Route path="/dashboard/campaigns" element={<DashPage><MailingCampaignsPage /></DashPage>} />
-    <Route path="/dashboard/settings" element={<DashPage><div className="text-foreground font-heading text-2xl font-bold">Settings — Coming Soon</div></DashPage>} />
+    <Route path="/dashboard/settings" element={<DashPage><SettingsPage /></DashPage>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
