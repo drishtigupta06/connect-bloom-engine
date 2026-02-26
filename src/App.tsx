@@ -25,6 +25,7 @@ import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import ApiDocsPage from "./pages/ApiDocsPage";
 import VerificationPage from "./pages/VerificationPage";
 import ImpactDashboard from "./pages/ImpactDashboard";
+import MentorshipPage from "./pages/MentorshipPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -62,6 +63,7 @@ const AppRoutes = () => (
     <Route path="/dashboard/admin" element={<DashPage><SuperAdminDashboard /></DashPage>} />
     <Route path="/dashboard/verification" element={<DashPage><VerificationPage /></DashPage>} />
     <Route path="/dashboard/impact" element={<DashPage><ImpactDashboard /></DashPage>} />
+    <Route path="/dashboard/mentorship" element={<DashPage><MentorshipPage /></DashPage>} />
     <Route path="/dashboard/settings" element={<DashPage><div className="text-foreground font-heading text-2xl font-bold">Settings — Coming Soon</div></DashPage>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
