@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Mail, Lock, User } from "lucide-react";
 import { toast } from "sonner";
-import logoImg from "@/assets/logo.png";
+import AlumniOSLogo from "@/components/AlumniOSLogo";
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -50,7 +50,7 @@ export default function AuthPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-4">
-            <img src={logoImg} alt="AlumniOS" className="h-8 w-8" />
+            <AlumniOSLogo className="h-9 w-9" nodeColor="hsl(var(--primary-foreground))" />
             <span className="font-heading font-bold text-2xl text-primary-foreground">Alumni<span className="text-accent">OS</span></span>
           </div>
           <h1 className="text-xl font-heading font-semibold text-primary-foreground">

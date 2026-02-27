@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Users, Briefcase, TrendingUp, Brain, Sparkles, Globe, Shield, Play, Star, Quote, ChevronLeft, ChevronRight, Award } from "lucide-react";
 import { Link } from "react-router-dom";
 import heroImage from "@/assets/hero-network.jpg";
-import logoImg from "@/assets/logo.png";
+import AlumniOSLogo from "@/components/AlumniOSLogo";
 import { supabase } from "@/integrations/supabase/client";
 
 /* ─── Animated Counter ─── */
@@ -113,7 +113,7 @@ export default function LandingPage() {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-glass backdrop-blur-md border-b border-border/50">
         <div className="container mx-auto flex items-center justify-between h-16 px-6">
            <Link to="/" className="flex items-center gap-2">
-            <img src={logoImg} alt="AlumniOS" className="h-7 w-7" />
+            <AlumniOSLogo className="h-7 w-7" nodeColor="hsl(var(--foreground))" />
             <span className="font-heading font-bold text-lg text-foreground">Alumni<span className="text-accent">OS</span></span>
           </Link>
           <div className="hidden md:flex items-center gap-8">
@@ -396,7 +396,7 @@ export default function LandingPage() {
       <footer className="bg-primary py-12">
         <div className="container mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <img src={logoImg} alt="AlumniOS" className="h-5 w-5" />
+            <AlumniOSLogo className="h-5 w-5" nodeColor="hsl(var(--primary-foreground))" />
             <span className="font-heading font-semibold text-primary-foreground">Alumni<span className="text-accent">OS</span></span>
           </div>
           <p className="text-sm text-primary-foreground/50">© 2026 AlumniOS. All rights reserved.</p>

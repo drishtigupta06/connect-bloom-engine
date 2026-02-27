@@ -1,7 +1,7 @@
 import { ReactNode, useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import logoImg from "@/assets/logo.png";
+import AlumniOSLogo from "@/components/AlumniOSLogo";
 import {
   LayoutDashboard, Users, MessageSquare, Calendar, Briefcase, Brain,
   BarChart3, Settings, Sparkles, ChevronLeft, Bell, Search, LogOut,
@@ -186,7 +186,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         collapsed ? "w-[72px]" : "w-64"
       )}>
         <div className="flex items-center gap-2 h-16 px-4 border-b border-sidebar-border">
-          <img src={logoImg} alt="AlumniOS" className="h-6 w-6 shrink-0" />
+          <AlumniOSLogo className="h-7 w-7 shrink-0" nodeColor="hsl(var(--sidebar-foreground))" accentColor="hsl(var(--sidebar-primary))" />
           {!collapsed && <span className="font-heading font-bold text-sidebar-foreground text-lg truncate">Alumni<span className="text-sidebar-primary">OS</span></span>}
         </div>
 
