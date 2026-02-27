@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Sparkles, Mail, Lock, User } from "lucide-react";
+import { Mail, Lock, User } from "lucide-react";
 import { toast } from "sonner";
+import logoImg from "@/assets/logo.png";
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -49,8 +50,8 @@ export default function AuthPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-4">
-            <Sparkles className="h-8 w-8 text-accent" />
-            <span className="font-heading font-bold text-2xl text-primary-foreground">AlumniOS</span>
+            <img src={logoImg} alt="AlumniOS" className="h-8 w-8" />
+            <span className="font-heading font-bold text-2xl text-primary-foreground">Alumni<span className="text-accent">OS</span></span>
           </div>
           <h1 className="text-xl font-heading font-semibold text-primary-foreground">
             {isLogin ? "Welcome back" : "Create your account"}
