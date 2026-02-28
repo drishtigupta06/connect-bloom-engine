@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Verify the calling user is a super_admin
+    // Verify the calling user
     const anonClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
       auth: { autoRefreshToken: false, persistSession: false },
@@ -29,23 +29,34 @@ Deno.serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // Check if caller is super_admin
-    const { data: roleData } = await adminClient
+    // Check caller roles
+    const { data: callerRoles } = await adminClient
       .from("user_roles")
       .select("role")
-      .eq("user_id", caller.id)
-      .eq("role", "super_admin")
-      .maybeSingle();
+      .eq("user_id", caller.id);
 
-    if (!roleData) throw new Error("Only super admins can create users");
+    const roles = (callerRoles || []).map((r: any) => r.role);
+    const isSuperAdmin = roles.includes("super_admin");
+    const isInstitutionAdmin = roles.includes("institution_admin");
 
-    const { email, password, full_name, role } = await req.json();
+    if (!isSuperAdmin && !isInstitutionAdmin) {
+      throw new Error("Only super admins and institution admins can create users");
+    }
+
+    const { email, password, full_name, role, institution_id } = await req.json();
 
     if (!email || !password || !full_name) throw new Error("Email, password, and full name are required");
     if (password.length < 6) throw new Error("Password must be at least 6 characters");
 
     const validRoles = ["super_admin", "institution_admin", "alumni", "student", "moderator"];
     if (!validRoles.includes(role)) throw new Error("Invalid role");
+
+    // Institution admins can only create alumni and student roles
+    if (isInstitutionAdmin && !isSuperAdmin) {
+      if (!["alumni", "student"].includes(role)) {
+        throw new Error("Institution admins can only create alumni and student accounts");
+      }
+    }
 
     // Create the user
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
@@ -60,10 +71,12 @@ Deno.serve(async (req) => {
 
     const userId = newUser.user.id;
 
-    // Update profile
-    await adminClient.from("profiles").update({
-      full_name,
-    }).eq("user_id", userId);
+    // Update profile with institution_id if provided
+    const profileUpdate: any = { full_name };
+    if (institution_id) {
+      profileUpdate.institution_id = institution_id;
+    }
+    await adminClient.from("profiles").update(profileUpdate).eq("user_id", userId);
 
     // Set role (the trigger creates a default "alumni" role, so update it)
     if (role !== "alumni") {

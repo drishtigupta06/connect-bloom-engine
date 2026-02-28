@@ -45,6 +45,7 @@ const navItems: NavItem[] = [
   { icon: BarChart3, label: "Analytics", path: "/dashboard/analytics" },
   { icon: BarChart3, label: "Admin Analytics", path: "/dashboard/admin-analytics", roles: ["institution_admin"] },
   { icon: Mail, label: "Campaigns", path: "/dashboard/campaigns", roles: ["institution_admin"] },
+  { icon: Users, label: "Manage Users", path: "/dashboard/manage-users", roles: ["institution_admin"] },
   { icon: Award, label: "Impact", path: "/dashboard/impact", roles: ["moderator", "institution_admin"] },
   { icon: ShieldCheck, label: "Verification", path: "/dashboard/verification", roles: ["moderator", "institution_admin"] },
   { icon: Palette, label: "Branding", path: "/dashboard/branding", roles: ["institution_admin"] },

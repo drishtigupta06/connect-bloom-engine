@@ -34,6 +34,7 @@ import CareerForumPage from "./pages/CareerForumPage";
 import GlobalAlumniMap from "./pages/GlobalAlumniMap";
 import AdminAnalyticsPage from "./pages/AdminAnalyticsPage";
 import MailingCampaignsPage from "./pages/MailingCampaignsPage";
+import ManageUsersPage from "./pages/ManageUsersPage";
 import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 
@@ -81,6 +82,7 @@ const AppRoutes = () => (
     <Route path="/dashboard/global-map" element={<DashPage><GlobalAlumniMap /></DashPage>} />
     <Route path="/dashboard/admin-analytics" element={<DashPage><AdminAnalyticsPage /></DashPage>} />
     <Route path="/dashboard/campaigns" element={<DashPage><MailingCampaignsPage /></DashPage>} />
+    <Route path="/dashboard/manage-users" element={<DashPage><ManageUsersPage /></DashPage>} />
     <Route path="/dashboard/settings" element={<DashPage><SettingsPage /></DashPage>} />
     <Route path="*" element={<NotFound />} />
   </Routes>
